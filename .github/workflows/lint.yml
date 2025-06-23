@@ -35,6 +35,12 @@ jobs:
       - name: Format Frontend
         run: npm run format
 
+      - name: View config
+        run: php artisan config:show database
+
+      - name: View config
+        run: php artisan config:show database | grep sqlite
+
       - name: Lint Frontend
         run: npm run lint
 
