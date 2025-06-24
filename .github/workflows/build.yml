@@ -1,0 +1,48 @@
+name: build
+
+on:
+  push:
+    branches: 
+      - '**'
+
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      REGISTRY_USER: ninotter
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: docker-login
+        run: echo "${DOCKERUP_PASSWORD}" | docker login -u ninotter --password-stdin
+      - name: set-docker-var
+        run: |
+          LARADOCK_HASH=9ade3bfc
+          LARADOCK_HASH=${LARADOCK_HASH:0:8}
+          echo "LARADOCK_HASH=$LARADOCK_HASH" >> $GITHUB_ENV
+
+          echo "LARADOCK_WORKSPACE_IMAGE=$REGISTRY_USER/workspace_${LARADOCK_HASH}" >> $GITHUB_ENV
+          echo "LARADOCK_NGINX_IMAGE=$REGISTRY_USER/nginx_${LARADOCK_HASH}" >> $GITHUB_ENV
+          echo "LARADOCK_PHP_FPM_IMAGE=$REGISTRY_USER/php_fpm_${LARADOCK_HASH}" >> $GITHUB_ENV
+
+          echo "WORKSPACE_IMAGE=$REGISTRY_USER/workspace:latest" >> $GITHUB_ENV
+          echo "NGINX_IMAGE=$REGISTRY_USER/nginx:latest" >> $GITHUB_ENV
+          echo "PHP_FPM_IMAGE=$REGISTRY_USER/php_fpm:latest" >> $GITHUB_ENV
+
+      - name: build_push
+        run: |
+          docker build -t ${WORKSPACE_IMAGE} -f deploy/workspace/Dockerfile \
+          --build-arg LARADOCK_WORKSPACE=${LARADOCK_WORKSPACE_IMAGE} .
+          docker build -t ${NGINX_IMAGE} -f deploy/nginx/Dockerfile \
+          --build-arg LARADOCK_NGINX=${LARADOCK_NGINX_IMAGE} .
+
+          docker pull ${LARADOCK_PHP_FPM_IMAGE}
+          docker tag ${LARADOCK_PHP_FPM_IMAGE} ${PHP_FPM_IMAGE}
+          echo "pushing..."
+          docker push ${WORKSPACE_IMAGE}
+          docker push ${NGINX_IMAGE}
+          docker push ${PHP_FPM_IMAGE}
+          echo "pushed."
